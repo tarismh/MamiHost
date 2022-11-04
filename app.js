@@ -13,12 +13,21 @@ app.listen({port: process.env.PORT}, async() => {
     console.log('Terhubung Dengan Database!')
 });
 
+const corsOptions = {
+    credentials: true,
+    origin: [
+      "http://localhost:5000/",
+      "https://mamihost-kerbeng.herokuapp.com/",
+    ],
+  };
+
 app.get('/', (req, res) => res.send('Welcome To MamiHost API'));
 
 const {
     UserRoute, PackageRoute, ServiceRoute, UserLogin
 } = require('./routes')
 
+app.use(cors(corsOptions));
 app.use('/user', UserRoute);
 app.use('/package', PackageRoute);
 app.use('/service', ServiceRoute);
