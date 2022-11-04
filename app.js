@@ -19,6 +19,7 @@ const corsOptions = {
     credentials: true,
     origin: [
       "http://localhost:5000/",
+      "http://localhost:3000/",
       "https://mamihost-kerbeng.herokuapp.com/",
     ],
   };
@@ -32,7 +33,7 @@ const {
 app.use(cors(corsOptions));
 app.use('/user', UserRoute);
 app.use('/package', PackageRoute);
-app.use('/service',verifyToken, ServiceRoute);
+app.use('/service', ServiceRoute);
 app.use('/login', UserLogin)
 
 module.exports = app;
