@@ -18,7 +18,6 @@ app.listen({port: process.env.PORT}, async() => {
 const corsOptions = {
     credentials: true,
     origin: [
-      "http://localhost:5000/",
       "http://localhost:3000/",
       "https://mamihost-kerbeng.herokuapp.com/",
     ],
