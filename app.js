@@ -16,11 +16,7 @@ app.listen({port: process.env.PORT}, async() => {
 
 const corsOptions = {
     credentials: true,
-    origin: [
-      "http://localhost:3000/",
-      "*",
-      "https://mamihost-kerbeng.herokuapp.com/",
-    ],
+    origin: true,
   };
 
 app.get('/', (req, res) => res.send('Welcome To MamiHost API'));
