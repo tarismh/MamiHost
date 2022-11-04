@@ -3,6 +3,7 @@ const app = express();
 require('dotenv').config();
 const { sequelize } = require('./models');
 const path = require("path");
+const cors = require("cors");
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
