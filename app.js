@@ -4,6 +4,7 @@ require('dotenv').config();
 const { sequelize } = require('./models');
 const path = require("path");
 const cors = require("cors");
+const verifyToken = require('./middleware/JWTverify');
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
@@ -31,7 +32,7 @@ const {
 app.use(cors(corsOptions));
 app.use('/user', UserRoute);
 app.use('/package', PackageRoute);
-app.use('/service', ServiceRoute);
+app.use('/service',verifyToken, ServiceRoute);
 app.use('/login', UserLogin)
 
 module.exports = app;
