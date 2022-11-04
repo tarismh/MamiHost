@@ -4,8 +4,7 @@ module.exports = {
   async up(queryInterface, DataTypes) {
     await queryInterface.createTable('tb_packages', {
       package_id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.INTEGER,
         allowNull: false,
         // autoIncrement: true,
         primaryKey: true
