@@ -19,26 +19,18 @@ module.exports = {
       duration: {
         type: DataTypes.INTEGER
       },
-      service_ip: {
-        type: DataTypes.STRING
-      },
-      service_port: {
-        type: DataTypes.STRING
-      },
-      service_username: {
-        type: DataTypes.STRING
-      },
-      service_password: {
-        type: DataTypes.STRING
-      },
       service_image: {
         type: DataTypes.STRING,
         allowNull: false
       },
-      db_dialect: {
+      git_repository: {
         type: DataTypes.STRING
       },
-      service_OS: {
+      pod_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      db_dialect: {
         type: DataTypes.STRING
       },
       service_type: {

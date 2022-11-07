@@ -29,17 +29,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    service_ip:{
-      type: DataTypes.STRING,
-      allowNull: false,
+    git_repository: {
+      type: DataTypes.STRING
     },
-    service_username: {
+    pod_name: {
       type: DataTypes.STRING,
-      allowNull: false,
-    },
-    service_password: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: false
     },
     service_type: {
       type: DataTypes.STRING,
@@ -58,12 +53,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     db_dialect: {
       type: DataTypes.STRING
-    },
-    service_OS: {
-      type: DataTypes.STRING
-    },
-    service_port: {
-      type: DataTypes.STRING,
     }
   }, {
     sequelize,
