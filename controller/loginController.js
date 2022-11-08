@@ -12,15 +12,12 @@ require('dotenv').config();
 const userLogin = async(req, res) => {
     try{
         const {
-            usernameOrEmail,
+            username,
             password,
         } = req.body;
         const userCheck = await User.findOne({
             where: {
-                username: req.body.usernameOrEmail,
-                $or: {
-                    email: req.body.usernameOrEmail
-                }
+                username: req.body.username
             }
         });
         if(!userCheck)
