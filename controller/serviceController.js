@@ -49,7 +49,7 @@ const createService = async (req, res) => {
                             "sleep",
                             "infinity"
                           ],
-                          "image": req.body.service_image,
+                          "image": req.body.db_dialect,
                           "name": req.body.service_image,
                         }
                       ]
