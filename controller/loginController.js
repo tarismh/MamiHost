@@ -12,30 +12,56 @@ require('dotenv').config();
 const userLogin = async(req, res) => {
     try{
         const {
-            username,
+            usernameOrEmail,
             password,
         } = req.body;
-        const userCheck = await User.findOne({
-            where: {
-                username: req.body.username
-            }
-        });
-        if(!userCheck)
+        if(!req.body.username)
         {
-            const hashedCompare = await bcrypt.compare(req.body.password, userCheck.password)
-            if(hashedCompare)
-            {
-                const accessToken = generateAccessToken(userCheck.username);
-                res.json({status: "success", accessToken: accessToken, user: userCheck});
+            const userCheck = await User.findOne({
+                where: {email: req.body.email}
+            });
+            if(!userCheck){
+                throw new ClientError("Email Tidak Terdaftar");
             }
-            else
+            else{
+                const hashedCompare = await bcrypt.compare(req.body.password, userCheck.password)
+                if(hashedCompare)
+                {
+                    const accessToken = generateAccessToken(userCheck.username);
+                    res.json({status: "success", accessToken: accessToken, user: userCheck});
+                }
+                else
+                {
+                    throw new ClientError("Password yang anda masukkan salah");
+                }
+            }
+        }
+        else if(!req.body.email)
+        {
             {
-                throw new ClientError("Password yang anda masukkan salah");
+                const userCheck = await User.findOne({
+                    where: {username: req.body.username}
+                });
+                if(!userCheck){
+                    throw new ClientError("Username Tidak Terdaftar");
+                }
+                else{
+                    const hashedCompare = await bcrypt.compare(req.body.password, userCheck.password)
+                    if(hashedCompare)
+                    {
+                        const accessToken = generateAccessToken(userCheck.username);
+                        res.json({status: "success", accessToken: accessToken, user: userCheck});
+                    }
+                    else
+                    {
+                        throw new ClientError("Password yang anda masukkan salah");
+                    }
+                }
             }
         }
         else
         {
-            throw new ClientError("Email atau Username Tidak Terdaftar");
+            throw new ClientError("Gunakan Username atau Email saja (salah satu)");
         }
     }
     catch(err){
