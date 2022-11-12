@@ -209,11 +209,17 @@ const serviceDetail = async (req, res) => {
             detailedResult = getCreatedPod.data.status
             console.log(detailedResult);
             const resultDetail = {
-                pod_name: req.params.pods,
+                pod_name: getPodName.pod_name,
                 pod_ip: detailedResult.podIP,
                 machine_status: detailedResult.containerStatuses[0].ready,
                 start_date: getPodName.service_started,
                 end_date: getPodName.service_ended,
+                duration: getPodName.duration,
+                git_repository: getPodName.git_repository,
+                service_type: getPodName.service_type,
+                service_image: getPodName.service_image,
+                db_dialect: getPodName.db_dialect,
+                user_email: getPodName.user_email,
             }
             return resSuccessHandler(res, resultDetail, "success");
         }
