@@ -170,7 +170,7 @@ const clientDashboard = async(req,res) => {
         
         if(getClientService.length === 0)
         {
-            throw new ClientError("Anda Belum Pernah Melakukan Hosting Menggunakan Layanan Kami.");
+            return resSuccessHandler("Succeess", "Maaf, Anda Belum Pernah Melakukan Hosting Menggunakan Layanan Kami.");
             
         }
         else
