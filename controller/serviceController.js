@@ -1,17 +1,17 @@
-const ClientError = require('../exception/clientError');
+const ClientError = require("../exception/clientError");
 const {
     resSuccessHandler,
-    resErrorHandler
-} = require('../exception/resHandler');
-const { HostedService, User } = require('../models');
-const bcrypt = require("bcrypt");
-const http = require('node:http');
-const https = require('https');
-const axios = require('axios');
-require('dotenv').config();
+    resErrorHandler,
+} = require("../exception/resHandler");
+const { HostedService, User } = require("../models");
+// const bcrypt = require("bcrypt");
+// const http = require("node:http");
+// const https = require("https");
+const axios = require("axios");
+require("dotenv").config();
 
 const createService = async (req, res) => {
-    try{
+    try {
         const {
             user_email,
             duration,
@@ -22,53 +22,352 @@ const createService = async (req, res) => {
         } = req.body;
         const validateUser = await User.findOne({
             where: {
-                email: req.body.user_email
-            }
+                email: req.body.user_email,
+            },
         });
-        if(!validateUser){
-            throw new ClientError("Daftarkan Email Terlebih Dahulu Email Anda Pada Aplikasi Kami");
-        }
-        else{
-            const randomizedName = validateUser.username+'-'+makeName(6);
+        if (!validateUser) {
+            throw new ClientError(
+                "Daftarkan Email Terlebih Dahulu Email Anda Pada Aplikasi Kami"
+            );
+        } else {
+            const randomizedName = validateUser.username + "-" + makeName(6);
             let date = new Date();
             let selesai = new Date();
-            if(req.body.service_type === "DB")
-            {
-                const podName = 'db' + '-' + randomizedName;
-                const postData = JSON.stringify({
-                    "apiVersion": "v1",
-                    "kind": "Pod",
-                    "metadata": {
-                      "name": podName
-                    },
-                    "spec": {
-                      "hostNetwork": false,
-                      "containers": [
-                        {
-                          "command": [
-                            "sleep",
-                            "infinity"
-                          ],
-                          "image": req.body.db_dialect,
-                          "name": req.body.db_dialect,
+            if (req.body.service_type === "DB") {
+                const createDBResource = async () => {
+                    const pvcName = "pvc" + "-" + randomizedName;
+                    const pvName = "pv" + "-" + randomizedName;
+                    const podName = "db" + "-" + randomizedName;
+                    const svcName = "svc" + "-" + randomizedName;
+                    try {
+                        // Claim PVC and PV Storage in Kubernetes
+                        const makePV = async () => {
+                            const pvClaim = JSON.stringify({
+                                kind: "PersistentVolume",
+                                apiVersion: "v1",
+                                metadata: {
+                                    name: pvName,
+                                    labels: {
+                                        type: "local",
+                                        userapp: validateUser.username,
+                                    },
+                                },
+                                spec: {
+                                    storageClassName: "manual",
+                                    capacity: {
+                                        storage: "500Mi",
+                                    },
+                                    accessModes: ["ReadWriteMany"],
+                                    hostPath: {
+                                        path: "/mnt/data",
+                                    },
+                                },
+                            });
+
+                            const pvAxiosConfig = {
+                                method: "post",
+                                url:
+                                    process.env.KUBE_LINK +
+                                    "/persistentvolumes",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                },
+                                data: pvClaim,
+                            };
+                            return await axios(pvAxiosConfig);
+                        };
+                        await makePV();
+
+                        const makePVC = async () => {
+                            const pvcClaim = JSON.stringify({
+                                kind: "PersistentVolumeClaim",
+                                apiVersion: "v1",
+                                metadata: {
+                                    name: pvcName,
+                                    labels: {
+                                        userapp: validateUser.username,
+                                    },
+                                },
+                                spec: {
+                                    storageClassName: "manual",
+                                    accessModes: ["ReadWriteMany"],
+                                    resources: {
+                                        requests: {
+                                            storage: "500Mi",
+                                        },
+                                    },
+                                },
+                            });
+
+                            const pvcAxiosConfig = {
+                                method: "post",
+                                url:
+                                    process.env.KUBE_LINK +
+                                    "/namespaces/default/persistentvolumeclaims",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                },
+                                data: pvcClaim,
+                            };
+                            return await axios(pvcAxiosConfig);
+                        };
+                        await makePVC();
+
+                        // Condition based on what the dialect of the DB
+                        if (req.body.db_dialect == "postgres") {
+                            const makePod = async () => {
+                                const dbPod = JSON.stringify({
+                                    apiVersion: "v1",
+                                    kind: "Pod",
+                                    metadata: {
+                                        name: podName,
+                                        labels: {
+                                            userapp: validateUser.username,
+                                        },
+                                    },
+                                    spec: {
+                                        volumes: [
+                                            {
+                                                name: "db-pv-storage",
+                                                persistentVolumeClaim: {
+                                                    claimName: pvcName,
+                                                },
+                                            },
+                                        ],
+                                        containers: [
+                                            {
+                                                name: "postgres",
+                                                image: "postgres",
+                                                ports: [
+                                                    {
+                                                        containerPort: 5432,
+                                                        name: "user-db-port",
+                                                    },
+                                                ],
+                                                envFrom: [
+                                                    {
+                                                        configMapRef: {
+                                                            name: "user-db-config",
+                                                        },
+                                                    },
+                                                ],
+                                                imagePullPolicy: "IfNotPresent",
+                                                volumeMounts: [
+                                                    {
+                                                        mountPath:
+                                                            "/var/lib/postgres/data",
+                                                        name: "db-pv-storage",
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                });
+                                const podAxiosConfig = {
+                                    method: "post",
+                                    url:
+                                        process.env.KUBE_LINK +
+                                        "/namespaces/default/pods",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                    },
+                                    data: dbPod,
+                                };
+                                return await axios(podAxiosConfig);
+                            };
+                            await makePod();
+
+                            const makeService = async () => {
+                                const dbSvc = JSON.stringify({
+                                    apiVersion: "v1",
+                                    kind: "Service",
+                                    metadata: {
+                                        name: svcName,
+                                        labels: {
+                                            userapp: validateUser.username,
+                                        },
+                                    },
+                                    spec: {
+                                        ports: [
+                                            {
+                                                port: 5432,
+                                                targetPort: "user-db-port",
+                                            },
+                                        ],
+                                        selector: {
+                                            userapp: validateUser.username,
+                                        },
+                                        type: "LoadBalancer",
+                                    },
+                                });
+                                const svcAxiosConfig = {
+                                    method: "post",
+                                    url:
+                                        process.env.KUBE_LINK +
+                                        "/namespaces/default/services",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                    },
+                                    data: dbSvc,
+                                };
+                                return await axios(svcAxiosConfig);
+                            };
+                            await makeService();
+                        } else if (req.body.db_dialect == "mysql") {
+                            const makePod = async () => {
+                                const dbPod = JSON.stringify({
+                                    apiVersion: "v1",
+                                    kind: "Pod",
+                                    metadata: {
+                                        name: podName,
+                                        labels: {
+                                            userapp: validateUser.username,
+                                        },
+                                    },
+                                    spec: {
+                                        volumes: [
+                                            {
+                                                name: "db-pv-storage",
+                                                persistentVolumeClaim: {
+                                                    claimName: pvcName,
+                                                },
+                                            },
+                                        ],
+                                        containers: [
+                                            {
+                                                name: "mysql",
+                                                image: "mysql",
+                                                ports: [
+                                                    {
+                                                        containerPort: 3306,
+                                                        name: "user-db-port",
+                                                    },
+                                                ],
+                                                envFrom: [
+                                                    {
+                                                        configMapRef: {
+                                                            name: "user-db-config",
+                                                        },
+                                                    },
+                                                ],
+                                                imagePullPolicy: "IfNotPresent",
+                                                volumeMounts: [
+                                                    {
+                                                        mountPath:
+                                                            "/var/lib/mysql/data",
+                                                        name: "db-pv-storage",
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                });
+                                const podAxiosConfig = {
+                                    method: "post",
+                                    url:
+                                        process.env.KUBE_LINK +
+                                        "/namespaces/default/pods",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                    },
+                                    data: dbPod,
+                                };
+                                return await axios(podAxiosConfig);
+                            };
+                            await makePod();
+
+                            const makeService = async () => {
+                                const dbSvc = JSON.stringify({
+                                    apiVersion: "v1",
+                                    kind: "Service",
+                                    metadata: {
+                                        name: svcName,
+                                        labels: {
+                                            userapp: validateUser.username,
+                                        },
+                                    },
+                                    spec: {
+                                        ports: [
+                                            {
+                                                port: 3306,
+                                                targetPort: "user-db-port",
+                                            },
+                                        ],
+                                        selector: {
+                                            userapp: validateUser.username,
+                                        },
+                                        type: "LoadBalancer",
+                                    },
+                                });
+
+                                const svcAxiosConfig = {
+                                    method: "post",
+                                    url:
+                                        process.env.KUBE_LINK +
+                                        "/namespaces/default/services",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                    },
+                                    data: dbSvc,
+                                };
+                                return await axios(svcAxiosConfig);
+                            };
+                            await makeService();
                         }
-                      ]
+
+                        return {
+                            status: "success",
+                            podName: podName,
+                        };
+                    } catch (err) {
+                        return err;
                     }
-                });
-                const axiosConfig = {
-                    method: 'post',
-                    url: process.env.KUBE_LINK,
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.KUBE_TOKEN}`
-                    },
-                    data: postData
-                }
-                console.log(axiosConfig);
-                const buildImage = await axios(axiosConfig);
+                };
+
+                // const postData = JSON.stringify({
+                //     apiVersion: "v1",
+                //     kind: "Pod",
+                //     metadata: {
+                //         name: podName,
+                //     },
+                //     spec: {
+                //         hostNetwork: false,
+                //         containers: [
+                //             {
+                //                 command: ["sleep", "infinity"],
+                //                 image: req.body.db_dialect,
+                //                 name: req.body.db_dialect,
+                //             },
+                //         ],
+                //     },
+                // });
+
+                // const axiosConfig = {
+                //     method: "post",
+                //     url: process.env.KUBE_LINK,
+                //     headers: {
+                //         "Content-Type": "application/json",
+                //         Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                //     },
+                //     data: postData,
+                // };
+                // console.log(axiosConfig);
+                // const buildImage = await axios(axiosConfig);
+                // console.log(buildImage);
+
+                const buildImage = await createDBResource();
                 console.log(buildImage);
-                if(buildImage.status == 200 || buildImage.statusText == 'Created')
-                {
+                if (
+                    buildImage.status == "success"
+                    // buildImage.status == 200 ||
+                    // buildImage.statusText == "Created"
+                ) {
                     selesai.setDate(date.getDate() + req.body.duration);
                     const insertService = await HostedService.create({
                         user_email: req.body.user_email,
@@ -77,56 +376,51 @@ const createService = async (req, res) => {
                         service_image: req.body.service_image,
                         git_repository: req.body.git_repository,
                         service_started: date,
-                        pod_name: podName,
+                        pod_name: buildImage.podName,
                         service_ended: selesai,
                         db_dialect: req.body.db_dialect,
                     });
                     resSuccessHandler(res, insertService, "success");
-                }
-                else
-                {
+                } else {
                     throw new ClientError("Proses Pembuatan Container Gagal");
                 }
-            }
-            else if(req.body.service_type === "WB")
-            {
-                const podName = 'wb' + '-' + randomizedName
+            } else if (req.body.service_type === "WB") {
+                const podName = "wb" + "-" + randomizedName;
                 const postData = JSON.stringify({
-                    "apiVersion": "v1",
-                    "kind": "Pod",
-                    "metadata": {
-                      "name": podName
+                    apiVersion: "v1",
+                    kind: "Pod",
+                    metadata: {
+                        name: podName,
                     },
-                    "spec": {
-                      "hostNetwork": false,
-                      "containers": [
-                        {
-                          "command": [
-                            "sleep",
-                            "infinity"
-                          ],
-                          "image": req.body.service_image,
-                          "name": req.body.service_image
-                        }
-                      ]
-                    }
+                    spec: {
+                        hostNetwork: false,
+                        containers: [
+                            {
+                                command: ["sleep", "infinity"],
+                                image: req.body.service_image,
+                                name: req.body.service_image,
+                            },
+                        ],
+                    },
                 });
-    
+
                 const axiosConfig = {
-                    method: 'post',
+                    method: "post",
                     url: process.env.KUBE_LINK,
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.KUBE_TOKEN}`
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
                     },
-                    data: postData
-                }
+                    data: postData,
+                };
                 console.log(axiosConfig);
 
                 const buildImage = await axios(axiosConfig);
                 console.log(buildImage);
-                if(buildImage.status == 200 || buildImage.statusText == 'Created')
-                {
+                if (
+                    buildImage.status == 200 ||
+                    buildImage.statusText == "Created"
+                ) {
                     selesai.setDate(date.getDate() + req.body.duration);
                     const insertService = await HostedService.create({
                         user_email: req.body.user_email,
@@ -139,74 +433,64 @@ const createService = async (req, res) => {
                         service_ended: selesai,
                         db_dialect: req.body.db_dialect,
                     });
-                    resSuccessHandler(res, insertService,"success");
-                }
-                else
-                {
+                    resSuccessHandler(res, insertService, "success");
+                } else {
                     throw new ClientError("Proses Pembuatan Container Gagal");
                 }
             }
         }
-    }
-    catch(err){
+    } catch (err) {
         resErrorHandler(res, err);
     }
-}
+};
 
-const clientDashboard = async(req,res) => {
-    try{
+const clientDashboard = async (req, res) => {
+    try {
         const userEmail = req.params.email;
-        if(!userEmail){
+        if (!userEmail) {
             throw new ClientError("Insert User Email");
         }
         const getClientService = await HostedService.findAll({
             where: {
-                user_email: userEmail
+                user_email: userEmail,
             },
-            order: [
-                ['service_type', 'ASC']
-            ]
+            order: [["service_type", "ASC"]],
         });
-        
-        if(getClientService.length === 0)
-        {
-            return resSuccessHandler(res, "succeess", "Maaf, Anda Belum Pernah Melakukan Hosting Menggunakan Layanan Kami.");
-            
-        }
-        else
-        {
+
+        if (getClientService.length === 0) {
+            return resSuccessHandler(
+                res,
+                "succeess",
+                "Maaf, Anda Belum Pernah Melakukan Hosting Menggunakan Layanan Kami."
+            );
+        } else {
             return resSuccessHandler(res, getClientService, "success");
         }
-
-    }
-    catch(err){
+    } catch (err) {
         return resErrorHandler(res, err);
     }
-}
+};
 
 const serviceDetail = async (req, res) => {
-    try{
+    try {
         const podDetail = req.params.pods;
         const getPodName = await HostedService.findOne({
-            where: {pod_name: podDetail}
+            where: { pod_name: podDetail },
         });
-        if(!getPodName)
-        {
+        if (!getPodName) {
             throw new ClientError("Pod Tidak Terdaftar");
-        }
-        else
-        {
+        } else {
             const createdPodConfig = {
-                method: 'get',
-                url: process.env.KUBE_LINK+'/'+podDetail,
+                method: "get",
+                url: process.env.KUBE_LINK + "/" + podDetail,
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.KUBE_TOKEN}`
-                }
-            }
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                },
+            };
             const getCreatedPod = await axios(createdPodConfig);
             let detailedResult = {};
-            detailedResult = getCreatedPod.data.status
+            detailedResult = getCreatedPod.data.status;
             console.log(detailedResult);
             const resultDetail = {
                 pod_name: getPodName.pod_name,
@@ -220,23 +504,24 @@ const serviceDetail = async (req, res) => {
                 service_image: getPodName.service_image,
                 db_dialect: getPodName.db_dialect,
                 user_email: getPodName.user_email,
-            }
+            };
             return resSuccessHandler(res, resultDetail, "success");
         }
-    }
-    catch(err){
+    } catch (err) {
         return resErrorHandler(res, err);
-    }   
-}
+    }
+};
 
 function makeName(length) {
-    var result           = '';
-    var characters       = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var result = "";
+    var characters = "abcdefghijklmnopqrstuvwxyz0123456789";
     var charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    for (var i = 0; i < length; i++) {
+        result += characters.charAt(
+            Math.floor(Math.random() * charactersLength)
+        );
     }
     return result;
 }
 
-module.exports = {createService, clientDashboard, serviceDetail};
+module.exports = { createService, clientDashboard, serviceDetail };
