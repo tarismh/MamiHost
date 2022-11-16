@@ -482,7 +482,10 @@ const serviceDetail = async (req, res) => {
         } else {
             const createdPodConfig = {
                 method: "get",
-                url: process.env.KUBE_LINK + "/" + podDetail,
+                url:
+                    process.env.KUBE_LINK +
+                    "/namespaces/default/pods/" +
+                    podDetail,
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
