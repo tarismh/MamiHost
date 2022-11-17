@@ -240,7 +240,7 @@ const createService = async (req, res) => {
                                         containers: [
                                             {
                                                 name: "mysql",
-                                                image: "mysql",
+                                                image: "mysql:5.6",
                                                 ports: [
                                                     {
                                                         containerPort: 3306,
@@ -258,7 +258,7 @@ const createService = async (req, res) => {
                                                 volumeMounts: [
                                                     {
                                                         mountPath:
-                                                            "/var/lib/mysql/data",
+                                                            "/var/lib/mysql",
                                                         name: "db-pv-storage",
                                                     },
                                                 ],
@@ -330,44 +330,9 @@ const createService = async (req, res) => {
                     }
                 };
 
-                // const postData = JSON.stringify({
-                //     apiVersion: "v1",
-                //     kind: "Pod",
-                //     metadata: {
-                //         name: podName,
-                //     },
-                //     spec: {
-                //         hostNetwork: false,
-                //         containers: [
-                //             {
-                //                 command: ["sleep", "infinity"],
-                //                 image: req.body.db_dialect,
-                //                 name: req.body.db_dialect,
-                //             },
-                //         ],
-                //     },
-                // });
-
-                // const axiosConfig = {
-                //     method: "post",
-                //     url: process.env.KUBE_LINK,
-                //     headers: {
-                //         "Content-Type": "application/json",
-                //         Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
-                //     },
-                //     data: postData,
-                // };
-                // console.log(axiosConfig);
-                // const buildImage = await axios(axiosConfig);
-                // console.log(buildImage);
-
                 const buildImage = await createDBResource();
                 console.log(buildImage);
-                if (
-                    buildImage.status == "success"
-                    // buildImage.status == 200 ||
-                    // buildImage.statusText == "Created"
-                ) {
+                if (buildImage.status == "success") {
                     selesai.setDate(date.getDate() + req.body.duration);
                     const insertService = await HostedService.create({
                         user_email: req.body.user_email,
