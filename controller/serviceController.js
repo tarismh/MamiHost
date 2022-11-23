@@ -356,9 +356,13 @@ const createService = async (req, res) => {
                     kind: "Pod",
                     metadata: {
                         name: podName,
+                        labels: {
+                            app: "web",
+                        }
                     },
                     spec: {
-                        hostNetwork: false,
+                        hostNetwork: true,
+                        hostPort: true,
                         containers: [
                             {
                                 command: ["sleep", "infinity"],
@@ -368,10 +372,10 @@ const createService = async (req, res) => {
                         ],
                     },
                 });
-
+                const printURL = process.env.KUBE_LINK+"/namespaces/default/pods";
                 const axiosConfig = {
                     method: "post",
-                    url: process.env.KUBE_LINK,
+                    url: printURL,
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
@@ -379,7 +383,7 @@ const createService = async (req, res) => {
                     data: postData,
                 };
                 console.log(axiosConfig);
-
+                console.log(printURL)
                 const buildImage = await axios(axiosConfig);
                 console.log(buildImage);
                 if (
