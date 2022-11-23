@@ -50,6 +50,7 @@ const createService = async (req, res) => {
                                     labels: {
                                         type: "local",
                                         userapp: validateUser.username,
+                                        "svc-type": "database",
                                     },
                                 },
                                 spec: {
@@ -87,6 +88,7 @@ const createService = async (req, res) => {
                                     name: pvcName,
                                     labels: {
                                         userapp: validateUser.username,
+                                        "svc-type": "database",
                                     },
                                 },
                                 spec: {
@@ -125,6 +127,7 @@ const createService = async (req, res) => {
                                         name: podName,
                                         labels: {
                                             userapp: validateUser.username,
+                                            "svc-type": "database",
                                         },
                                     },
                                     spec: {
@@ -143,7 +146,6 @@ const createService = async (req, res) => {
                                                 ports: [
                                                     {
                                                         containerPort: 5432,
-                                                        name: "user-db-port",
                                                     },
                                                 ],
                                                 envFrom: [
@@ -188,19 +190,20 @@ const createService = async (req, res) => {
                                         name: svcName,
                                         labels: {
                                             userapp: validateUser.username,
+                                            "svc-type": "database",
                                         },
                                     },
                                     spec: {
                                         ports: [
                                             {
                                                 port: 5432,
-                                                targetPort: "user-db-port",
+                                                targetPort: 5432,
                                             },
                                         ],
                                         selector: {
                                             userapp: validateUser.username,
                                         },
-                                        type: "LoadBalancer",
+                                        type: "NodePort",
                                     },
                                 });
                                 const svcAxiosConfig = {
@@ -226,6 +229,7 @@ const createService = async (req, res) => {
                                         name: podName,
                                         labels: {
                                             userapp: validateUser.username,
+                                            "svc-type": "database",
                                         },
                                     },
                                     spec: {
@@ -244,7 +248,6 @@ const createService = async (req, res) => {
                                                 ports: [
                                                     {
                                                         containerPort: 3306,
-                                                        name: "user-db-port",
                                                     },
                                                 ],
                                                 envFrom: [
@@ -289,19 +292,20 @@ const createService = async (req, res) => {
                                         name: svcName,
                                         labels: {
                                             userapp: validateUser.username,
+                                            "svc-type": "database",
                                         },
                                     },
                                     spec: {
                                         ports: [
                                             {
                                                 port: 3306,
-                                                targetPort: "user-db-port",
+                                                targetPort: 3306,
                                             },
                                         ],
                                         selector: {
                                             userapp: validateUser.username,
                                         },
-                                        type: "LoadBalancer",
+                                        type: "NodePort",
                                     },
                                 });
 
@@ -350,42 +354,104 @@ const createService = async (req, res) => {
                     throw new ClientError("Proses Pembuatan Container Gagal");
                 }
             } else if (req.body.service_type === "WB") {
-                const podName = "wb" + "-" + randomizedName;
-                const postData = JSON.stringify({
-                    apiVersion: "v1",
-                    kind: "Pod",
-                    metadata: {
-                        name: podName,
-                    },
-                    spec: {
-                        hostNetwork: false,
-                        containers: [
-                            {
-                                command: ["sleep", "infinity"],
-                                image: req.body.service_image,
-                                name: req.body.service_image,
-                            },
-                        ],
-                    },
-                });
+                const createWebResource = async () => {
+                    const podName = "wb" + "-" + randomizedName;
+                    const svcName = "svc" + "-" + randomizedName;
+                    try {
+                        const makePod = async () => {
+                            const webPod = JSON.stringify({
+                                apiVersion: "v1",
+                                kind: "Pod",
+                                metadata: {
+                                    name: podName,
+                                    labels: {
+                                        userapp: validateUser.username,
+                                        "svc-type": "web",
+                                    },
+                                },
+                                spec: {
+                                    containers: [
+                                        {
+                                            name: "nginx",
+                                            image: "nginx",
+                                            ports: [
+                                                {
+                                                    containerPort: 80,
+                                                },
+                                            ],
+                                            imagePullPolicy: "IfNotPresent",
+                                        },
+                                    ],
+                                },
+                            });
 
-                const axiosConfig = {
-                    method: "post",
-                    url: process.env.KUBE_LINK,
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
-                    },
-                    data: postData,
+                            const podAxiosConfig = {
+                                method: "post",
+                                url:
+                                    process.env.KUBE_LINK +
+                                    "/namespaces/default/pods",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                },
+                                data: webPod,
+                            };
+                            return await axios(podAxiosConfig);
+                        };
+                        await makePod();
+
+                        const makeService = async () => {
+                            const webSvc = JSON.stringify({
+                                apiVersion: "v1",
+                                kind: "Service",
+                                metadata: {
+                                    name: svcName,
+                                    labels: {
+                                        userapp: validateUser.username,
+                                        "svc-type": "web",
+                                    },
+                                },
+                                spec: {
+                                    ports: [
+                                        {
+                                            port: 80,
+                                            targetPort: 80,
+                                        },
+                                    ],
+                                    selector: {
+                                        userapp: validateUser.username,
+                                    },
+                                    type: "NodePort",
+                                },
+                            });
+
+                            const svcAxiosConfig = {
+                                method: "post",
+                                url:
+                                    process.env.KUBE_LINK +
+                                    "/namespaces/default/services",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                                },
+                                data: webSvc,
+                            };
+                            return await axios(svcAxiosConfig);
+                        };
+                        await makeService();
+
+                        return {
+                            status: "success",
+                            podName: podName,
+                        };
+                    } catch (err) {
+                        return err;
+                    }
                 };
-                console.log(axiosConfig);
 
-                const buildImage = await axios(axiosConfig);
+                const buildImage = await createWebResource();
                 console.log(buildImage);
-                if (
-                    buildImage.status == 200 ||
-                    buildImage.statusText == "Created"
-                ) {
+                if (buildImage.status == "success") {
                     selesai.setDate(date.getDate() + req.body.duration);
                     const insertService = await HostedService.create({
                         user_email: req.body.user_email,
@@ -393,7 +459,7 @@ const createService = async (req, res) => {
                         service_type: req.body.service_type,
                         service_image: req.body.service_image,
                         git_repository: req.body.git_repository,
-                        pod_name: podName,
+                        pod_name: buildImage.podName,
                         service_started: date,
                         service_ended: selesai,
                         db_dialect: req.body.db_dialect,
