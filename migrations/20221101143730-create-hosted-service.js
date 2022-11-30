@@ -30,6 +30,10 @@ module.exports = {
         type: DataTypes.STRING,
         allowNull: false
       },
+      svc_name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
       db_dialect: {
         type: DataTypes.STRING
       },

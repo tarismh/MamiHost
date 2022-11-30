@@ -36,6 +36,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+    svc_name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     service_type: {
       type: DataTypes.STRING,
       allowNull: false,

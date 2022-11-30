@@ -346,6 +346,7 @@ const createService = async (req, res) => {
                         git_repository: req.body.git_repository,
                         service_started: date,
                         pod_name: buildImage.podName,
+                        svc_name: buildImage.svcName,
                         service_ended: selesai,
                         db_dialect: req.body.db_dialect,
                     });
@@ -460,6 +461,7 @@ const createService = async (req, res) => {
                         service_image: req.body.service_image,
                         git_repository: req.body.git_repository,
                         pod_name: buildImage.podName,
+                        svc_name: buildImage.svcName,
                         service_started: date,
                         service_ended: selesai,
                         db_dialect: req.body.db_dialect,
@@ -522,13 +524,28 @@ const serviceDetail = async (req, res) => {
                     Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
                 },
             };
+            const nodeDetail = {
+                method: "get",
+                url:
+                    process.env.KUBE_LINK+"/namespaces/default/services/"+getPodName.svc_name,
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
+                },
+            };
+            const getNodePort = await axios(nodeDetail);
+            let nodePort = {};
+            nodePort = getNodePort;
+            const userAccessPort = nodePort.data.spec.ports[0].nodePort
+            console.log(userAccessPort);
             const getCreatedPod = await axios(createdPodConfig);
+            //console.log(getCreatedPod);
             let detailedResult = {};
             detailedResult = getCreatedPod.data.status;
-            console.log(detailedResult);
+            //console.log(detailedResult);
             const resultDetail = {
                 pod_name: getPodName.pod_name,
-                pod_ip: detailedResult.podIP,
+                AccessAddress: process.env.DB_HOST+":"+userAccessPort,
                 machine_status: detailedResult.containerStatuses[0].ready,
                 start_date: getPodName.service_started,
                 end_date: getPodName.service_ended,
