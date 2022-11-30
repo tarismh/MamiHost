@@ -527,7 +527,9 @@ const serviceDetail = async (req, res) => {
             const nodeDetail = {
                 method: "get",
                 url:
-                    process.env.KUBE_LINK+"/namespaces/default/services/"+getPodName.svc_name,
+                    process.env.KUBE_LINK +
+                    "/namespaces/default/services/" +
+                    getPodName.svc_name,
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${process.env.KUBE_TOKEN}`,
@@ -536,7 +538,7 @@ const serviceDetail = async (req, res) => {
             const getNodePort = await axios(nodeDetail);
             let nodePort = {};
             nodePort = getNodePort;
-            const userAccessPort = nodePort.data.spec.ports[0].nodePort
+            const userAccessPort = nodePort.data.spec.ports[0].nodePort;
             console.log(userAccessPort);
             const getCreatedPod = await axios(createdPodConfig);
             //console.log(getCreatedPod);
@@ -545,7 +547,7 @@ const serviceDetail = async (req, res) => {
             //console.log(detailedResult);
             const resultDetail = {
                 pod_name: getPodName.pod_name,
-                AccessAddress: process.env.DB_HOST+":"+userAccessPort,
+                pod_ip: process.env.DB_HOST + ":" + userAccessPort,
                 machine_status: detailedResult.containerStatuses[0].ready,
                 start_date: getPodName.service_started,
                 end_date: getPodName.service_ended,
